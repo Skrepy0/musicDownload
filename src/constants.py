@@ -8,6 +8,10 @@ except ImportError:
     MUSICDL_AVAILABLE = False
     print("警告：musicdl 库未安装，请运行 pip install musicdl")
 
+# 搜索完成后提示
+SEARCH_SUCCESS_PROMPT = False 
+# 配置
+CONFIG_PATH = "./data/config.json"
 # 来源名称映射 (中文 -> 英文)
 SOURCE_MAP_CN_TO_EN = {
     "苹果音乐": "AppleMusicClient",
@@ -33,7 +37,6 @@ SOURCE_MAP_EN_TO_CN = {v: k for k, v in SOURCE_MAP_CN_TO_EN.items()}
 # 默认选中的来源
 DEFAULT_CHECKED_SOURCES = ["酷我音乐", "酷狗音乐"]
 DEFAULT_SPIN_LIMIT = 10
-DEFAULT_SAVE_DIR = os.path.join(os.getcwd(), "已下载音乐")
 
 # 现代风格样式表
 MODERN_STYLE = """

@@ -1,0 +1,39 @@
+import json
+from .constants import CONFIG_PATH, DEFAULT_CHECKED_SOURCES
+config={}
+checked_sources = []
+try:
+    with open(CONFIG_PATH,'r',encoding='utf-8') as f:
+        config = json.load(f)
+except:
+    pass
+
+try:
+    checked_sources = config["checked_sources"]
+except:
+    checked_sources = DEFAULT_CHECKED_SOURCES
+def save_config():
+    try:
+        with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
+            json.dump(config, f)
+    except:
+        print("写入失败!")
+def get_download_path():
+    try:
+        return config["download_path"]
+    except:
+        return "已下载音乐"
+
+def set_download_path(path):
+    config["download_path"]=path
+    save_config()
+def get_checked_sources():
+    try:
+        return checked_sources
+    except:
+        return DEFAULT_CHECKED_SOURCES
+def set_checked_sources(list):
+    checked_sources=list
+    config["checked_sources"]=checked_sources
+    save_config()
+

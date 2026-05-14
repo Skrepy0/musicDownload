@@ -2,14 +2,16 @@ import os
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
     QLabel, QLineEdit, QPushButton, QCheckBox, QTableWidget, QTableWidgetItem,
-    QHeaderView, QMenu, QFileDialog, QMessageBox, QApplication
+    QMenu, QFileDialog, QMessageBox, QApplication
 )
 from PySide6.QtCore import Qt, QThreadPool
-from PySide6.QtGui import QAction, QFont, QPixmap
+from PySide6.QtGui import QAction, QFont
+
+from .config import get_checked_sources, get_download_path, set_checked_sources, set_download_path
 
 from .constants import (
-    MUSICDL_AVAILABLE, musicdl, SOURCE_MAP_CN_TO_EN, SOURCE_MAP_EN_TO_CN,
-    DEFAULT_CHECKED_SOURCES, DEFAULT_SPIN_LIMIT, DEFAULT_SAVE_DIR, MODERN_STYLE
+    MUSICDL_AVAILABLE, SEARCH_SUCCESS_PROMPT, musicdl, SOURCE_MAP_CN_TO_EN, SOURCE_MAP_EN_TO_CN,
+    DEFAULT_CHECKED_SOURCES, DEFAULT_SPIN_LIMIT, MODERN_STYLE
 )
 from .utils import get_file_format, get_album_image_url
 from .widgets import ModernComboBox, ModernSpinBox, FlowLayout, SimpleProgressDialog
@@ -39,7 +41,7 @@ class MusicDownloader(QMainWindow):
 
         # 路径
         self.current_dir = os.getcwd()
-        self.save_dir = DEFAULT_SAVE_DIR
+        self.save_dir = os.path.join(os.getcwd(), get_download_path())
         os.makedirs(self.save_dir, exist_ok=True)
 
         self.auto_download_after_search = False
@@ -70,7 +72,7 @@ class MusicDownloader(QMainWindow):
         self.source_checkboxes = []
         for cn_name in SOURCE_MAP_CN_TO_EN.keys():
             cb = QCheckBox(cn_name)
-            if cn_name in DEFAULT_CHECKED_SOURCES:
+            if cn_name in get_checked_sources():
                 cb.setChecked(True)
             self.source_checkboxes.append(cb)
             flow.addWidget(cb)
@@ -186,6 +188,7 @@ class MusicDownloader(QMainWindow):
         if dir_path:
             self.save_dir = dir_path
             self.save_dir_edit.setText(dir_path)
+            set_download_path(dir_path)
 
     def show_table_context_menu(self, pos):
         item = self.results_table.itemAt(pos)
@@ -368,11 +371,12 @@ class MusicDownloader(QMainWindow):
         if self.auto_download_after_search and all_songs:
             self._start_download_task(all_songs, f"正在处理 {len(all_songs)} 首歌曲")
         else:
-            QMessageBox.information(
-                self,
-                "搜索完毕",
-                f"🎉 搜索完成！共找到 {row} 首歌曲。\n(专辑封面正在后台加载...)",
-            )
+            if SEARCH_SUCCESS_PROMPT:
+                QMessageBox.information(
+                    self,
+                    "搜索完毕",
+                    f"🎉 搜索完成！共找到 {row} 首歌曲。\n(专辑封面正在后台加载...)",
+                )
 
     def on_image_downloaded(self, row, pixmap):
         try:
@@ -486,3 +490,11 @@ class MusicDownloader(QMainWindow):
                 songs_to_download,
                 f"正在批量下载 {len(songs_to_download)} 首歌曲..."
             )
+    def closeEvent(self, event):
+        path = []
+        for cb in self.source_checkboxes:
+            if cb.isChecked():
+                path.append(cb.text())
+        set_checked_sources(path)
+        event.accept()   
+        
