@@ -1,5 +1,3 @@
-import os
-
 try:
     from musicdl import musicdl
     MUSICDL_AVAILABLE = True

@@ -1,20 +1,22 @@
 import os
+
+from PySide6.QtCore import Qt, QThreadPool
+from PySide6.QtGui import QAction, QFont
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
     QLabel, QLineEdit, QPushButton, QCheckBox, QTableWidget, QTableWidgetItem,
     QMenu, QFileDialog, QMessageBox, QApplication, QProgressBar
 )
-from PySide6.QtCore import Qt, QThreadPool
-from PySide6.QtGui import QAction, QFont
 
-from .config import get_checked_sources, get_download_path, get_spin_limit, set_checked_sources, set_download_path, set_spin_limit
-
+from .config import get_checked_sources, get_download_path, get_spin_limit, set_checked_sources, set_download_path, \
+    set_spin_limit
 from .constants import (
-    MUSICDL_AVAILABLE, SEARCH_SUCCESS_PROMPT, musicdl, SOURCE_MAP_CN_TO_EN, SOURCE_MAP_EN_TO_CN,MODERN_STYLE
+    MUSICDL_AVAILABLE, SEARCH_SUCCESS_PROMPT, musicdl, SOURCE_MAP_CN_TO_EN, SOURCE_MAP_EN_TO_CN, MODERN_STYLE
 )
 from .utils import get_file_format, get_album_image_url
 from .widgets import ModernSpinBox, FlowLayout, SimpleProgressDialog
 from .workers import ImageDownloadTask, SearchThread, DownloadThread
+
 
 class MusicDownloader(QMainWindow):
     def __init__(self):

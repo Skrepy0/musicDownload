@@ -1,10 +1,12 @@
 # workers.py
 import os
 import shutil
+
 import requests
-from PySide6.QtCore import QThread, Signal, QRunnable, QObject, QThreadPool, Qt
+from PySide6.QtCore import QThread, Signal, QRunnable, QObject, Qt
 from PySide6.QtGui import QPixmap
-from .constants import MUSICDL_AVAILABLE, musicdl
+
+from .constants import MUSICDL_AVAILABLE
 from .utils import sanitize_filename
 
 if not MUSICDL_AVAILABLE:

@@ -1,9 +1,10 @@
+from PySide6.QtCore import Qt, QRect, QPoint, QSize
+from PySide6.QtGui import QPainter, QColor
 from PySide6.QtWidgets import (
     QComboBox, QSpinBox, QStyleOptionSpinBox, QStyle, QDialog,
     QVBoxLayout, QLabel, QProgressBar, QWidget, QLayout, QSizePolicy
 )
-from PySide6.QtCore import Qt, QRect, QPoint, QSize
-from PySide6.QtGui import QPainter, QColor
+
 
 # ---------- ModernComboBox ----------
 class ModernComboBox(QComboBox):

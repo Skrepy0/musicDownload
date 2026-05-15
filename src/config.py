@@ -1,5 +1,7 @@
 import json
+
 from .constants import CONFIG_PATH, DEFAULT_CHECKED_SOURCES, DEFAULT_SPIN_LIMIT
+
 config={}
 checked_sources = []
 spin_limit=0
