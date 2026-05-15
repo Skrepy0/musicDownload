@@ -173,6 +173,8 @@ class MusicDownloader(QMainWindow):
         self.results_table.setSortingEnabled(True)
         # 连接排序信号
         self.results_table.horizontalHeader().sectionClicked.connect(self.on_header_clicked)
+        # 连接单元格点击信号
+        self.results_table.cellClicked.connect(self.on_cell_clicked)
 
         self.results_table.setColumnWidth(0, 40)
         self.results_table.setColumnWidth(1, 65)
@@ -276,6 +278,120 @@ class MusicDownloader(QMainWindow):
             # 取消排序状态
             self.results_table.horizontalHeader().setSortIndicator(-1, Qt.SortOrder.AscendingOrder)
             return
+
+    def on_cell_clicked(self, row, column):
+        # 点击专辑封面（第1列）- 试听功能
+        if column == 1:
+            self.play_preview(row)
+        # 点击歌曲名（第2列）- 下载功能
+        elif column == 2:
+            self.download_single_song(row)
+
+    def play_preview(self, row):
+        """点击专辑封面显示歌曲详情和试听选项"""
+        if row < 0 or not self.music_client:
+            return
+
+        row_key = str(row)
+        if row_key not in self.music_records:
+            return
+
+        song_info = self.music_records[row_key]
+        song_name = song_info.get("song_name", "未知歌曲")
+        singers = song_info.get("singers", [])
+        if isinstance(singers, list):
+            singers = ", ".join(singers)
+        album = song_info.get("album", "未知专辑")
+        source = song_info.get("source", "")
+
+        from .constants import SOURCE_MAP_EN_TO_CN
+        source_cn = SOURCE_MAP_EN_TO_CN.get(source, source)
+        file_format = song_info.get("file_format", "未知")
+        file_size = song_info.get("file_size", "未知")
+        duration = song_info.get("duration", "未知")
+
+        # 检查是否有试听链接（非下载链接）
+        preview_url = (
+            song_info.get("preview_url") or
+            song_info.get("listen_url") or
+            song_info.get("play_url")
+        )
+
+        download_url = song_info.get("download_url") or song_info.get("url")
+
+        info_text = f"""🎵 歌曲信息预览
+
+📝 歌曲名：{song_name}
+👤 歌手：{singers}
+💿 专辑：{album}
+🌐 来源：{source_cn}
+🎼 格式：{file_format}
+📊 大小：{file_size}
+⏱️ 时长：{duration}"""
+
+        # 创建自定义对话框
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle("歌曲预览")
+        msg_box.setText(info_text)
+        msg_box.setIcon(QMessageBox.Icon.Information)
+
+        # 添加按钮
+        download_btn = msg_box.addButton("⬇️ 下载", QMessageBox.ButtonRole.AcceptRole)
+        preview_btn = None
+
+        if preview_url:
+            preview_btn = msg_box.addButton("🎵 试听", QMessageBox.ButtonRole.ActionRole)
+
+        cancel_btn = msg_box.addButton("关闭", QMessageBox.ButtonRole.RejectRole)
+
+        msg_box.setDefaultButton(cancel_btn)
+        msg_box.exec()
+
+        # 处理按钮点击
+        clicked_button = msg_box.clickedButton()
+
+        if clicked_button == download_btn:
+            # 用户选择下载
+            self._start_download_task([song_info], f"正在下载：{song_name}")
+        elif preview_btn and clicked_button == preview_btn:
+            # 用户选择试听
+            import webbrowser
+            try:
+                webbrowser.open(preview_url)
+            except Exception as e:
+                QMessageBox.warning(self, "试听失败", f"无法打开试听链接：{str(e)}")
+
+    def download_single_song(self, row):
+        """点击歌曲名进行下载"""
+        if row < 0 or not self.music_client:
+            return
+
+        row_key = str(row)
+        if row_key not in self.music_records:
+            return
+
+        song_info = self.music_records[row_key]
+        song_name = song_info.get("song_name", "未知歌曲")
+        singers = song_info.get("singers", [])
+        if isinstance(singers, list):
+            singers = ", ".join(singers)
+
+        # 快速下载，提供即时反馈
+        self._start_download_task([song_info], f"正在下载：{song_name}")
+
+        # 显示下载开始的提示（短暂显示）
+        original_text = self.btn_download.text()
+        self.btn_download.setText("⬇️ 下载中...")
+        self.btn_download.setEnabled(False)
+
+        # 0.5秒后恢复按钮状态
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(500, lambda: self._restore_download_button(original_text))
+
+    def _restore_download_button(self, original_text):
+        """恢复下载按钮状态"""
+        self.btn_download.setText(original_text)
+        self.btn_download.setEnabled(True)
 
     # ---------- 核心功能 ----------
     def init_music_client(self):
