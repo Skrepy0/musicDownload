@@ -7,14 +7,14 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QThreadPool
 from PySide6.QtGui import QAction, QFont
 
-from .config import get_checked_sources, get_download_path, set_checked_sources, set_download_path
+from .config import get_checked_sources, get_download_path, get_spin_limit, set_checked_sources, set_download_path, set_spin_limit
 
 from .constants import (
     MUSICDL_AVAILABLE, SEARCH_SUCCESS_PROMPT, musicdl, SOURCE_MAP_CN_TO_EN, SOURCE_MAP_EN_TO_CN,
     DEFAULT_CHECKED_SOURCES, DEFAULT_SPIN_LIMIT, MODERN_STYLE
 )
 from .utils import get_file_format, get_album_image_url
-from .widgets import ModernComboBox, ModernSpinBox, FlowLayout, SimpleProgressDialog
+from .widgets import ModernSpinBox, FlowLayout, SimpleProgressDialog
 from .workers import ImageDownloadTask, SearchThread, DownloadThread
 
 class MusicDownloader(QMainWindow):
@@ -84,9 +84,12 @@ class MusicDownloader(QMainWindow):
         label_limit = QLabel("单源获取数量：")
         self.spin_limit = ModernSpinBox()
         self.spin_limit.setRange(1, 100)
-        self.spin_limit.setValue(DEFAULT_SPIN_LIMIT)
+        self.spin_limit.setValue(get_spin_limit())
         self.spin_limit.setSuffix(" 条")
         self.spin_limit.setFixedWidth(100)
+
+        explanation_label = QLabel("(每个音乐源获取的歌曲数量)")
+        explanation_label.setStyleSheet("color: #6b7280; font-size: 12px;")
 
         label_save = QLabel("保存目录：")
         self.save_dir_edit = QLineEdit(self.save_dir)
@@ -99,6 +102,7 @@ class MusicDownloader(QMainWindow):
         self.check_auto_download.stateChanged.connect(self.on_auto_download_toggle)
 
         h1.addWidget(label_limit)
+        h1.addWidget(explanation_label)
         h1.addWidget(self.spin_limit)
         h1.addSpacing(15)
         h1.addWidget(label_save)
@@ -110,10 +114,6 @@ class MusicDownloader(QMainWindow):
 
         # 搜索行
         h2 = QHBoxLayout()
-        self.search_mode = ModernComboBox()
-        self.search_mode.addItems(["搜索歌曲", "解析歌单链接"])
-        self.search_mode.setFixedWidth(130)
-
         self.search_edit = QLineEdit()
         self.search_edit.setPlaceholderText("请输入关键词或输入歌单链接，按回车键也可搜索...")
         self.search_edit.returnPressed.connect(self.on_search)
@@ -123,7 +123,6 @@ class MusicDownloader(QMainWindow):
         self.btn_search.setFixedWidth(110)
         self.btn_search.clicked.connect(self.on_search)
 
-        h2.addWidget(self.search_mode)
         h2.addWidget(self.search_edit)
         h2.addWidget(self.btn_search)
         layout.addLayout(h2)
@@ -135,17 +134,10 @@ class MusicDownloader(QMainWindow):
 
         # 下载范围选择栏
         batch = QHBoxLayout()
-        scope_label = QLabel("下载范围：")
-        self.combo_download_scope = ModernComboBox()
-        self.combo_download_scope.addItems(["勾选", "全选", "未勾选"])
-        self.combo_download_scope.setFixedWidth(110)
-
         self.btn_download = QPushButton("⬇️ 下载选中内容")
         self.btn_download.clicked.connect(self.on_download)
         self.btn_download.setEnabled(False)
 
-        batch.addWidget(scope_label)
-        batch.addWidget(self.combo_download_scope)
         batch.addStretch()
         batch.addWidget(self.btn_download)
         layout.addLayout(batch)
@@ -398,7 +390,7 @@ class MusicDownloader(QMainWindow):
             print(f"设置专辑封面失败: {e}")
 
     def get_songs_by_download_scope(self):
-        scope = self.combo_download_scope.currentText()
+        # 现在只下载勾选的歌曲
         songs = []
         for row in range(self.results_table.rowCount()):
             cell_widget = self.results_table.cellWidget(row, 0)
@@ -406,9 +398,7 @@ class MusicDownloader(QMainWindow):
                 continue
             checkbox = cell_widget.findChild(QCheckBox)
             is_checked = checkbox.isChecked() if checkbox else False
-            if (scope == "全选" or
-                (scope == "勾选" and is_checked) or
-                (scope == "未勾选" and not is_checked)):
+            if is_checked:
                 if str(row) in self.music_records:
                     songs.append(self.music_records[str(row)])
         return songs
@@ -452,7 +442,7 @@ class MusicDownloader(QMainWindow):
         dlg.show()
 
         self.search_thread = SearchThread(
-            self.music_client, keyword, self.search_mode.currentText()
+            self.music_client, keyword, "搜索歌曲"
         )
 
         def on_finished(results):
@@ -492,6 +482,7 @@ class MusicDownloader(QMainWindow):
             )
     def closeEvent(self, event):
         path = []
+        set_spin_limit(self.spin_limit.value())
         for cb in self.source_checkboxes:
             if cb.isChecked():
                 path.append(cb.text())
