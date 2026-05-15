@@ -2,7 +2,7 @@ import os
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
     QLabel, QLineEdit, QPushButton, QCheckBox, QTableWidget, QTableWidgetItem,
-    QMenu, QFileDialog, QMessageBox, QApplication
+    QMenu, QFileDialog, QMessageBox, QApplication, QProgressBar
 )
 from PySide6.QtCore import Qt, QThreadPool
 from PySide6.QtGui import QAction, QFont
@@ -10,8 +10,7 @@ from PySide6.QtGui import QAction, QFont
 from .config import get_checked_sources, get_download_path, get_spin_limit, set_checked_sources, set_download_path, set_spin_limit
 
 from .constants import (
-    MUSICDL_AVAILABLE, SEARCH_SUCCESS_PROMPT, musicdl, SOURCE_MAP_CN_TO_EN, SOURCE_MAP_EN_TO_CN,
-    DEFAULT_CHECKED_SOURCES, DEFAULT_SPIN_LIMIT, MODERN_STYLE
+    MUSICDL_AVAILABLE, SEARCH_SUCCESS_PROMPT, musicdl, SOURCE_MAP_CN_TO_EN, SOURCE_MAP_EN_TO_CN,MODERN_STYLE
 )
 from .utils import get_file_format, get_album_image_url
 from .widgets import ModernSpinBox, FlowLayout, SimpleProgressDialog
@@ -126,6 +125,18 @@ class MusicDownloader(QMainWindow):
         h2.addWidget(self.search_edit)
         h2.addWidget(self.btn_search)
         layout.addLayout(h2)
+
+        # 搜索进度条
+        self.search_progress = QProgressBar()
+        self.search_progress.setRange(0, 100)
+        self.search_progress.setValue(0)
+        self.search_progress.setVisible(False)
+        self.search_progress.setStyleSheet("""
+            QProgressBar { border: none; border-radius: 4px; background-color: #f3f4f6; height: 6px; }
+            QProgressBar::chunk { background-color: #0078d4; border-radius: 4px; }
+        """)
+        layout.addWidget(self.search_progress)
+
         parent_layout.addLayout(layout)
 
     def setup_table(self, parent_layout):
@@ -157,6 +168,11 @@ class MusicDownloader(QMainWindow):
         self.results_table.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.results_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.results_table.customContextMenuRequested.connect(self.show_table_context_menu)
+        # 启用排序功能（除了第0列选择框和第1列封面）
+        self.results_table.horizontalHeader().setSectionsClickable(True)
+        self.results_table.setSortingEnabled(True)
+        # 连接排序信号
+        self.results_table.horizontalHeader().sectionClicked.connect(self.on_header_clicked)
 
         self.results_table.setColumnWidth(0, 40)
         self.results_table.setColumnWidth(1, 65)
@@ -254,6 +270,13 @@ class MusicDownloader(QMainWindow):
                 if checkbox:
                     checkbox.setChecked(False)
 
+    def on_header_clicked(self, logical_index):
+        # 不允许对选择列和封面列排序
+        if logical_index in (0, 1):
+            # 取消排序状态
+            self.results_table.horizontalHeader().setSortIndicator(-1, Qt.SortOrder.AscendingOrder)
+            return
+
     # ---------- 核心功能 ----------
     def init_music_client(self):
         if not MUSICDL_AVAILABLE:
@@ -292,6 +315,11 @@ class MusicDownloader(QMainWindow):
         ]
 
     def load_table_with_results(self, search_results):
+        # 获取当前的排序状态
+        header = self.results_table.horizontalHeader()
+        sort_column = header.sortIndicatorSection()
+        sort_order = header.sortIndicatorOrder()
+
         self.results_table.setRowCount(0)
         self.search_results = search_results
         self.music_records = {}
@@ -360,6 +388,10 @@ class MusicDownloader(QMainWindow):
 
         self.btn_download.setEnabled(row > 0)
 
+        # 恢复排序状态（如果之前有排序）
+        if sort_column > 1:  # 跳过选择列和封面列
+            self.results_table.sortItems(sort_column, sort_order)
+
         if self.auto_download_after_search and all_songs:
             self._start_download_task(all_songs, f"正在处理 {len(all_songs)} 首歌曲")
         else:
@@ -404,6 +436,7 @@ class MusicDownloader(QMainWindow):
         return songs
 
     def _start_download_task(self, songs_list, msg):
+        # 创建下载进度条（如果需要可以显示，目前保持隐藏）
         dlg = SimpleProgressDialog("下载提取中", msg, self.save_dir, self)
         dlg.show()
 
@@ -437,28 +470,31 @@ class MusicDownloader(QMainWindow):
 
         self.btn_search.setEnabled(False)
         self.btn_search.setText("搜索中...")
-
-        dlg = SimpleProgressDialog("🔍 搜索中", "正在全网搜罗音乐，请稍候...", None, self)
-        dlg.show()
+        self.search_progress.setValue(0)
+        self.search_progress.setVisible(True)
 
         self.search_thread = SearchThread(
             self.music_client, keyword, "搜索歌曲"
         )
 
         def on_finished(results):
-            dlg.accept()
+            self.search_progress.setVisible(False)
             self.btn_search.setEnabled(True)
             self.btn_search.setText("🔍 立即搜索")
             self.load_table_with_results(results)
 
         def on_error(error_msg):
-            dlg.accept()
+            self.search_progress.setVisible(False)
             self.btn_search.setEnabled(True)
             self.btn_search.setText("🔍 立即搜索")
             QMessageBox.critical(self, "错误", f"搜索失败：{error_msg}")
 
+        def on_progress(progress_value):
+            self.search_progress.setValue(progress_value)
+
         self.search_thread.finished.connect(on_finished)
         self.search_thread.error.connect(on_error)
+        self.search_thread.progress.connect(on_progress)  # 连接进度信号
         self.search_thread.start()
 
     def on_download(self):

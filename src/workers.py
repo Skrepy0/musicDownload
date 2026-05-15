@@ -47,6 +47,7 @@ class ImageDownloadTask(QRunnable):
 class SearchThread(QThread):
     finished = Signal(dict)
     error = Signal(str)
+    progress = Signal(int)  # 新增进度信号
 
     def __init__(self, music_client, keyword, search_type):
         super().__init__()
@@ -57,11 +58,20 @@ class SearchThread(QThread):
     def run(self):
         try:
             if self.search_type == "搜索歌曲":
+                # 发送开始搜索进度
+                self.progress.emit(10)
                 results = self.music_client.search(keyword=self.keyword)
+                # 发送搜索完成进度
+                self.progress.emit(90)
             else:
+                self.progress.emit(10)
                 results = self.music_client.parseplaylist(self.keyword)
+                self.progress.emit(90)
                 if not isinstance(results, dict):
                     results = {"歌单": results}
+
+            # 最终完成
+            self.progress.emit(100)
             self.finished.emit(results)
         except Exception as e:
             self.error.emit(str(e))
